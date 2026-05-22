@@ -5,32 +5,24 @@ import zipfile
 from pathlib import Path
 from typing import Any
 
-from timeline_for_pc import cli as cli_module
-from timeline_for_pc.cli import main
+from timeline_for_pc import api_server
+from timeline_for_pc.api_server import handle_request
 from timeline_for_pc.doctor import DoctorCheck
 from timeline_for_pc.doctor import DoctorResult
 from timeline_for_pc.doctor import format_doctor_result
 from timeline_for_pc.doctor import run_doctor
+from timeline_for_pc.runner import run_capture
 from timeline_for_pc.settings import AppSettings
 from timeline_for_pc.settings import SettingsInitResult
 from timeline_for_pc.settings import SettingsSaveResult
 from timeline_for_pc.settings import init_settings
 from timeline_for_pc.settings import load_settings
+from timeline_for_pc.settings import save_settings
+from timeline_for_pc.smoke import run_smoke_test
 
 
 def test_mock_capture_creates_expected_files(tmp_path: Path) -> None:
-    exit_code = main(
-        [
-            "capture",
-            "--mock",
-            "--mock-profile",
-            "baseline",
-            "--output-root",
-            str(tmp_path),
-        ]
-    )
-
-    assert exit_code == 0
+    run_capture(output_root=tmp_path, mock=True, mock_profile="baseline", redaction_profile="llm_safe")
 
     run_dirs = _run_dirs(tmp_path)
     assert len(run_dirs) == 1
@@ -85,8 +77,8 @@ def test_mock_capture_creates_expected_files(tmp_path: Path) -> None:
 
 
 def test_second_mock_capture_keeps_same_minimal_output_shape(tmp_path: Path) -> None:
-    assert main(["capture", "--mock", "--mock-profile", "baseline", "--output-root", str(tmp_path)]) == 0
-    assert main(["capture", "--mock", "--mock-profile", "upgraded", "--output-root", str(tmp_path)]) == 0
+    run_capture(output_root=tmp_path, mock=True, mock_profile="baseline", redaction_profile="llm_safe")
+    run_capture(output_root=tmp_path, mock=True, mock_profile="upgraded", redaction_profile="llm_safe")
 
     run_dirs = _run_dirs(tmp_path)
     second_run = run_dirs[-1]
@@ -110,12 +102,10 @@ def test_second_mock_capture_keeps_same_minimal_output_shape(tmp_path: Path) -> 
     assert "previous_snapshot_path" not in result
 
 
-def test_smoke_test_validates_mock_output(tmp_path: Path, capsys: Any) -> None:
-    exit_code = main(["smoke-test", "--output-root", str(tmp_path)])
-    captured = capsys.readouterr()
+def test_smoke_test_validates_mock_output(tmp_path: Path) -> None:
+    result = run_smoke_test(output_root=tmp_path, live=False, redaction_profile="llm_safe")
 
-    assert exit_code == 0
-    assert captured.out.splitlines()[0] == "OK"
+    assert result.ok
 
     run_dirs = _run_dirs(tmp_path)
     assert len(run_dirs) == 1
@@ -138,19 +128,13 @@ def test_smoke_test_validates_mock_output(tmp_path: Path, capsys: Any) -> None:
 
 
 def test_items_refresh_is_capture_alias_for_timeline_callers(tmp_path: Path) -> None:
-    exit_code = main(
-        [
-            "items",
-            "refresh",
-            "--mock",
-            "--mock-profile",
-            "baseline",
-            "--output-root",
-            str(tmp_path),
-        ]
+    status, _payload = handle_request(
+        "POST",
+        "/items/refresh",
+        {"mock": True, "mockProfile": "baseline", "outputRoot": str(tmp_path)},
     )
 
-    assert exit_code == 0
+    assert status == 200
     run_dirs = _run_dirs(tmp_path)
     assert len(run_dirs) == 1
     result = json.loads((run_dirs[0] / "result.json").read_text(encoding="utf-8"))
@@ -158,23 +142,14 @@ def test_items_refresh_is_capture_alias_for_timeline_callers(tmp_path: Path) -> 
     assert (tmp_path / "events.jsonl").exists()
 
 
-def test_items_refresh_json_reports_run_and_timeline_artifacts(tmp_path: Path, capsys: Any) -> None:
-    exit_code = main(
-        [
-            "items",
-            "refresh",
-            "--mock",
-            "--mock-profile",
-            "baseline",
-            "--output-root",
-            str(tmp_path),
-            "--json",
-        ]
+def test_items_refresh_json_reports_run_and_timeline_artifacts(tmp_path: Path) -> None:
+    status, payload = handle_request(
+        "POST",
+        "/items/refresh",
+        {"mock": True, "mockProfile": "baseline", "outputRoot": str(tmp_path)},
     )
-    captured = capsys.readouterr()
 
-    assert exit_code == 0
-    payload = json.loads(captured.out)
+    assert status == 200
     assert payload["ok"]
     assert payload["state"] == "completed"
     assert Path(payload["run_dir"]).exists()
@@ -182,27 +157,16 @@ def test_items_refresh_json_reports_run_and_timeline_artifacts(tmp_path: Path, c
     assert payload["timeline_artifacts"]["update_status"] == "first_seen"
 
 
-def test_items_list_reports_timeline_items_as_json(tmp_path: Path, capsys: Any) -> None:
-    assert main(["capture", "--mock", "--mock-profile", "baseline", "--output-root", str(tmp_path)]) == 0
-    capsys.readouterr()
+def test_items_list_reports_timeline_items_as_json(tmp_path: Path) -> None:
+    run_capture(output_root=tmp_path, mock=True, mock_profile="baseline", redaction_profile="llm_safe")
 
-    exit_code = main(
-        [
-            "items",
-            "list",
-            "--output-root",
-            str(tmp_path),
-            "--page",
-            "1",
-            "--page-size",
-            "1",
-            "--json",
-        ]
+    status, payload = handle_request(
+        "POST",
+        "/items/list",
+        {"outputRoot": str(tmp_path), "page": 1, "pageSize": 1},
     )
-    captured = capsys.readouterr()
 
-    assert exit_code == 0
-    payload = json.loads(captured.out)
+    assert status == 200
     assert payload["ok"]
     assert payload["pagination"]["total"] == 1
     assert payload["pagination"]["returned"] == 1
@@ -212,26 +176,19 @@ def test_items_list_reports_timeline_items_as_json(tmp_path: Path, capsys: Any) 
     assert payload["items"][0]["latest_update_status"] == "first_seen"
 
 
-def test_items_download_creates_timeline_ingestion_zip(tmp_path: Path, capsys: Any) -> None:
-    assert main(["capture", "--mock", "--mock-profile", "baseline", "--output-root", str(tmp_path)]) == 0
-    capsys.readouterr()
+def test_items_download_creates_timeline_ingestion_zip(tmp_path: Path) -> None:
+    run_capture(output_root=tmp_path, mock=True, mock_profile="baseline", redaction_profile="llm_safe")
     archive_path = tmp_path / "download.zip"
+    item_dir = next((tmp_path / "items").iterdir())
+    item_id = item_dir.name
 
-    exit_code = main(
-        [
-            "items",
-            "download",
-            "--output-root",
-            str(tmp_path),
-            "--output",
-            str(archive_path),
-            "--json",
-        ]
+    status, payload = handle_request(
+        "POST",
+        "/items/download",
+        {"outputRoot": str(tmp_path), "outputPath": str(archive_path), "itemIds": [item_id]},
     )
-    captured = capsys.readouterr()
 
-    assert exit_code == 0
-    payload = json.loads(captured.out)
+    assert status == 200
     assert payload["ok"]
     assert Path(payload["archive_path"]) == archive_path
     assert payload["archivePath"] == str(archive_path)
@@ -241,8 +198,6 @@ def test_items_download_creates_timeline_ingestion_zip(tmp_path: Path, capsys: A
     with zipfile.ZipFile(archive_path) as archive:
         entries = set(archive.namelist())
 
-    item_dir = next((tmp_path / "items").iterdir())
-    item_id = item_dir.name
     assert "manifest.json" in entries
     assert "items.jsonl" in entries
     assert "events.jsonl" in entries
@@ -251,9 +206,9 @@ def test_items_download_creates_timeline_ingestion_zip(tmp_path: Path, capsys: A
 
 
 def test_timeline_artifacts_append_first_seen_unchanged_and_changed_events(tmp_path: Path) -> None:
-    assert main(["capture", "--mock", "--mock-profile", "baseline", "--output-root", str(tmp_path)]) == 0
-    assert main(["capture", "--mock", "--mock-profile", "baseline", "--output-root", str(tmp_path)]) == 0
-    assert main(["capture", "--mock", "--mock-profile", "upgraded", "--output-root", str(tmp_path)]) == 0
+    run_capture(output_root=tmp_path, mock=True, mock_profile="baseline", redaction_profile="llm_safe")
+    run_capture(output_root=tmp_path, mock=True, mock_profile="baseline", redaction_profile="llm_safe")
+    run_capture(output_root=tmp_path, mock=True, mock_profile="upgraded", redaction_profile="llm_safe")
 
     item_dirs = sorted((tmp_path / "items").iterdir())
     assert len(item_dirs) == 1
@@ -330,7 +285,7 @@ def test_doctor_reports_ng_when_required_tools_are_missing(tmp_path: Path) -> No
     assert any("[WARN][optional] nvidia-smi" in line for line in lines)
 
 
-def test_doctor_cli_reports_json(capsys: Any, monkeypatch: Any, tmp_path: Path) -> None:
+def test_doctor_api_action_reports_json(monkeypatch: Any, tmp_path: Path) -> None:
     def fake_run_doctor(*, output_root: Path) -> DoctorResult:
         assert output_root == tmp_path
         return DoctorResult(
@@ -341,13 +296,11 @@ def test_doctor_cli_reports_json(capsys: Any, monkeypatch: Any, tmp_path: Path) 
             ),
         )
 
-    monkeypatch.setattr(cli_module, "run_doctor", fake_run_doctor)
+    monkeypatch.setattr(api_server, "run_doctor", fake_run_doctor)
 
-    exit_code = main(["doctor", "--output-root", str(tmp_path), "--json"])
-    captured = capsys.readouterr()
+    status, payload = handle_request("POST", "/doctor", {"outputRoot": str(tmp_path)})
 
-    assert exit_code == 0
-    payload = json.loads(captured.out)
+    assert status == 200
     assert payload["ok"]
     assert payload["runtime"]["kind"] == "windows_host"
     assert payload["runtime"]["state"] == "recordable"
@@ -359,10 +312,8 @@ def test_settings_init_creates_settings_json_without_overwriting(tmp_path: Path)
     example.write_text(
         json.dumps(
             {
-                "schema_version": 1,
-                "output_root": str(tmp_path / "runs"),
-                "redaction_profile": "none",
-                "mock_profile": "upgraded",
+                "schemaVersion": 1,
+                "outputRoot": str(tmp_path / "runs"),
             },
             indent=2,
         )
@@ -387,10 +338,12 @@ def test_load_settings_reads_local_settings_json(tmp_path: Path) -> None:
     settings_path.write_text(
         json.dumps(
             {
-                "schema_version": 1,
-                "output_root": str(tmp_path / "custom-output"),
-                "redaction_profile": "none",
-                "mock_profile": "upgraded",
+                "schemaVersion": 1,
+                "outputRoot": str(tmp_path / "custom-output"),
+                "runtime": {
+                    "instanceName": "test",
+                    "apiPort": 19601,
+                },
             }
         ),
         encoding="utf-8",
@@ -399,31 +352,33 @@ def test_load_settings_reads_local_settings_json(tmp_path: Path) -> None:
     settings = load_settings(root=tmp_path)
 
     assert settings.output_root == tmp_path / "custom-output"
-    assert settings.redaction_profile == "none"
-    assert settings.mock_profile == "upgraded"
+    assert settings.instance_name == "test"
+    assert settings.redaction_profile == "llm_safe"
+    assert settings.mock_profile == "baseline"
+    assert settings.api_port == 19601
 
 
-def test_settings_init_cli_reports_result(tmp_path: Path, capsys: Any, monkeypatch: Any) -> None:
+def test_settings_init_api_action_reports_result(tmp_path: Path, monkeypatch: Any) -> None:
     def fake_init_settings() -> SettingsInitResult:
         return SettingsInitResult(path=tmp_path / "settings.json", created=True)
 
-    monkeypatch.setattr(cli_module, "init_settings", fake_init_settings)
+    monkeypatch.setattr(api_server, "init_settings", fake_init_settings)
 
-    exit_code = main(["settings", "init"])
-    captured = capsys.readouterr()
+    status, payload = handle_request("POST", "/settings/init", {})
 
-    assert exit_code == 0
-    assert captured.out.splitlines() == [
-        "OK",
-        f"settings_path: {tmp_path / 'settings.json'}",
-        "created: true",
-    ]
+    assert status == 200
+    assert payload == {
+        "schemaVersion": 1,
+        "ok": True,
+        "settings_path": str(tmp_path / "settings.json"),
+        "created": True,
+    }
 
 
-def test_settings_status_cli_reports_json(capsys: Any, monkeypatch: Any, tmp_path: Path) -> None:
-    original_load_settings = cli_module.load_settings
+def test_settings_status_api_action_reports_json(monkeypatch: Any, tmp_path: Path) -> None:
+    original_load_settings = api_server.load_settings
     monkeypatch.setattr(
-        cli_module,
+        api_server,
         "load_settings",
         lambda: original_load_settings(root=tmp_path),
     )
@@ -431,70 +386,181 @@ def test_settings_status_cli_reports_json(capsys: Any, monkeypatch: Any, tmp_pat
     settings_path.write_text(
         json.dumps(
             {
-                "schema_version": 1,
-                "output_root": str(tmp_path / "runs"),
-                "redaction_profile": "none",
-                "mock_profile": "upgraded",
+                "schemaVersion": 1,
+                "outputRoot": str(tmp_path / "runs"),
             }
         ),
         encoding="utf-8",
     )
 
-    exit_code = main(["settings", "status", "--json"])
-    captured = capsys.readouterr()
+    status, payload = handle_request("POST", "/settings/status", {})
 
-    assert exit_code == 0
-    payload = json.loads(captured.out)
+    assert status == 200
     assert payload["ok"]
-    assert payload["output_root"] == str(tmp_path / "runs")
-    assert payload["redaction_profile"] == "none"
-    assert payload["mock_profile"] == "upgraded"
+    assert payload["outputRoot"] == str(tmp_path / "runs")
+    assert "redaction_profile" not in payload
+    assert "mock_profile" not in payload
+    assert payload["runtime"]["instanceName"] == "7d3f91ab4e"
+    assert payload["runtime"]["apiPort"] == 19600
 
 
-def test_settings_save_cli_reports_json(capsys: Any, monkeypatch: Any, tmp_path: Path) -> None:
+def test_settings_save_api_action_reports_json(monkeypatch: Any, tmp_path: Path) -> None:
     current = AppSettings(
         output_root=tmp_path / "old-runs",
-        redaction_profile="llm_safe",
-        mock_profile="baseline",
     )
     saved_path = tmp_path / "settings.json"
 
-    monkeypatch.setattr(cli_module, "load_settings", lambda: current)
+    monkeypatch.setattr(api_server, "load_settings", lambda: current)
     monkeypatch.setattr(
-        cli_module,
+        api_server,
         "save_settings",
         lambda **kwargs: SettingsSaveResult(
             path=saved_path,
             settings=AppSettings(
                 output_root=kwargs["output_root"],
-                redaction_profile=kwargs["redaction_profile"],
-                mock_profile=kwargs["mock_profile"],
+                instance_name=kwargs["instance_name"],
             ),
         ),
     )
 
-    exit_code = main(
-        [
-            "settings",
-            "save",
-            "--output-root",
-            str(tmp_path / "new-runs"),
-            "--redaction-profile",
-            "none",
-            "--mock-profile",
-            "upgraded",
-            "--json",
-        ]
+    status, payload = handle_request(
+        "POST",
+        "/settings/save",
+        {
+            "outputRoot": str(tmp_path / "new-runs"),
+            "instanceName": "test",
+        },
     )
-    captured = capsys.readouterr()
 
-    assert exit_code == 0
-    payload = json.loads(captured.out)
+    assert status == 200
     assert payload["ok"]
     assert payload["settings_path"] == str(saved_path)
-    assert payload["output_root"] == str(tmp_path / "new-runs")
-    assert payload["redaction_profile"] == "none"
-    assert payload["mock_profile"] == "upgraded"
+    assert payload["runtime"]["instanceName"] == "test"
+    assert payload["outputRoot"] == str(tmp_path / "new-runs")
+    assert "redaction_profile" not in payload
+    assert "mock_profile" not in payload
+
+
+def test_save_settings_preserves_unknown_product_specific_values(tmp_path: Path) -> None:
+    settings_path = tmp_path / "settings.json"
+    settings_path.write_text(
+        json.dumps(
+            {
+                "schemaVersion": 1,
+                "outputRoot": str(tmp_path / "old"),
+                "huggingFaceToken": "hf-secret",
+                "runtime": {
+                    "instanceName": "old-instance",
+                    "apiPort": 19600,
+                    "extraRuntimeValue": "keep",
+                },
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    result = save_settings(
+        root=tmp_path,
+        output_root=tmp_path / "new",
+        instance_name="new-instance",
+        api_port=19601,
+    )
+
+    payload = json.loads(settings_path.read_text(encoding="utf-8"))
+    assert result.settings.instance_name == "new-instance"
+    assert list(payload)[:3] == ["schemaVersion", "runtime", "outputRoot"]
+    assert list(payload["runtime"])[:2] == ["instanceName", "apiPort"]
+    assert "schema_version" not in payload
+    assert "instanceName" not in payload
+    assert payload["outputRoot"] == str(tmp_path / "new")
+    assert payload["huggingFaceToken"] == "hf-secret"
+    assert "apiHost" not in payload["runtime"]
+    assert payload["runtime"]["instanceName"] == "new-instance"
+    assert payload["runtime"]["apiPort"] == 19601
+    assert payload["runtime"]["extraRuntimeValue"] == "keep"
+
+
+def test_api_server_handles_settings_capture_list_and_download(tmp_path: Path, monkeypatch: Any) -> None:
+    product_root = tmp_path / "product"
+    source_dir = product_root / "src" / "timeline_for_pc"
+    source_dir.mkdir(parents=True)
+    output_root = tmp_path / "runs"
+    settings_path = product_root / "settings.json"
+    settings_path.write_text(
+        json.dumps(
+            {
+                "schemaVersion": 1,
+                "runtime": {
+                    "instanceName": "api-test",
+                    "apiPort": 19600,
+                },
+                "outputRoot": str(output_root),
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("TIMELINE_FOR_PC_ROOT", str(product_root))
+
+    health_status, health_payload = handle_request("GET", "/health", None)
+    assert health_status == 200
+    assert health_payload is True
+
+    settings_status, settings_payload = handle_request("POST", "/settings/status", {})
+    assert settings_status == 200
+    assert settings_payload["outputRoot"] == str(output_root)
+    assert settings_payload["runtime"]["instanceName"] == "api-test"
+
+    refresh_status, refresh_payload = handle_request(
+        "POST",
+        "/items/refresh",
+        {
+            "mock": True,
+            "mockProfile": "baseline",
+            "outputRoot": str(output_root),
+        },
+    )
+    assert refresh_status == 200
+    assert refresh_payload["ok"]
+    assert refresh_payload["state"] == "completed"
+
+    list_status, list_payload = handle_request(
+        "POST",
+        "/items/list",
+        {"outputRoot": str(output_root), "page": 1, "pageSize": 1},
+    )
+    assert list_status == 200
+    assert list_payload["item_count"] == 1
+    item_id = list_payload["items"][0]["item_id"]
+
+    download_status, download_payload = handle_request(
+        "POST",
+        "/items/download",
+        {
+            "outputRoot": str(output_root),
+            "itemIds": [item_id],
+            "outputPath": str(tmp_path / "download.zip"),
+        },
+    )
+    assert download_status == 200
+    assert Path(download_payload["archivePath"]).exists()
+
+    save_status, save_payload = handle_request(
+        "POST",
+        "/settings/save",
+        {
+            "outputRoot": str(tmp_path / "next-runs"),
+            "instanceName": "api-next",
+            "apiPort": 19602,
+        },
+    )
+    assert save_status == 200
+    assert save_payload["outputRoot"] == str(tmp_path / "next-runs")
+    assert save_payload["runtime"]["instanceName"] == "api-next"
+    assert save_payload["runtime"]["apiPort"] == 19602
 
 
 def _run_dirs(root: Path) -> list[Path]:

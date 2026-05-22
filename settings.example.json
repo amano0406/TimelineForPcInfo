@@ -1,6 +1,8 @@
 {
-  "schema_version": 1,
-  "output_root": "C:/TimelineData/pc",
-  "redaction_profile": "llm_safe",
-  "mock_profile": "baseline"
+  "schemaVersion": 1,
+  "runtime": {
+    "instanceName": "7d3f91ab4e",
+    "apiPort": 19600
+  },
+  "outputRoot": "C:/apps/Timeline/data/to_text/pc"
 }

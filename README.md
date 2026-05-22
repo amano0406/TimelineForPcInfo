@@ -1,28 +1,40 @@
 # TimelineForPC
 
-`TimelineForPC` is a local-first CLI for capturing the current state of a Windows PC, writing one readable markdown report, and appending a lightweight timeline event for each capture.
+`TimelineForPC` is a local-first Windows host tool for capturing the current
+state of a Windows PC, writing a readable markdown report, and appending
+Timeline-compatible item artifacts.
 
-The first MVP stays intentionally small:
+The product integration surface is the Python local API started by `start.ps1`.
 
-- CLI only
-- Python 3.11+
-- no production dependencies beyond the standard library
-- mock mode for tests and offline validation
+## Host-Only Boundary
 
-## What It Produces
+TimelineForPC is intentionally host-only because the source data is the current
+Windows machine state. Keep that host-side surface narrow:
+
+- Allowed host-only work: Windows system inventory, current-user autostart, and
+  local API process lifecycle.
+- Keep Timeline integration behind the local HTTP API. Do not add product
+  operation command runners.
+- Do not add Docker settings just for consistency while the product has no
+  Docker runtime.
+- If later processing becomes heavy or no longer needs direct Windows access,
+  move that processing behind a Docker worker and keep the Windows host API as a
+  small capture/control adapter.
+
+## What It Writes
 
 Each capture writes one run directory with:
 
 - `request.json`
-- `status.json`
-- `result.json`
-- `manifest.json`
 - `snapshot.json`
 - `snapshot_redacted.json`
 - `report.md`
-- `export/YYYYMMDDHHMM.md`
+- `YYYYMMDDHHMM.md`
+- `result.json`
+- `manifest.json`
+- `status.json`
 
-The output root also maintains timeline-oriented index files:
+Timeline item artifacts are written under the configured `outputRoot`:
 
 - `items/<pc-id>/timeline.json`
 - `items/<pc-id>/convert_info.json`
@@ -30,318 +42,207 @@ The output root also maintains timeline-oriented index files:
 - `events.jsonl`
 - `manifest.json`
 
-Every capture appends one timeline event. If the material PC configuration did
+Repeated captures append timeline events. If the material PC configuration did
 not change, the event is still saved with `update_status: "unchanged"`.
 
-The default output root is:
+See [OUTPUTS.md](OUTPUTS.md) for the concrete JSON structures, JSONL rows, and
+download ZIP contents.
 
-- Windows: `C:\TimelineData\pc`
-- WSL: `/mnt/c/TimelineData/pc`
-
-## What It Captures
-
-Current snapshot coverage:
-
-- Windows product name, version, build number, architecture
-- system manufacturer and model
-- BIOS and chassis details
-- Windows install/boot times and hotfix IDs
-- CPU summary
-- memory modules, slots, maximum capacity, and current recognized speed
-- GPU names, driver versions, and NVIDIA runtime stats when available
-- display summary
-- physical disks
-- filesystem volumes
-- network adapter summary
-- WSL summary
-- audio devices and hypervisor presence
-- installed apps from standard uninstall registry paths
-
-## Environment Requirements
-
-This product is a Windows host-inspection CLI. The standard entry point is
-PowerShell on the Windows host. WSL can still be used as a backdoor for
-development or emergency operation, but it is not the primary user path.
-
-It intentionally runs directly on the Windows host instead of Docker, because
-the main job is to read the actual PC state.
-
-It does not run as an always-on worker. PC configuration changes are infrequent,
-so the normal model is manual or scheduled CLI execution. If periodic capture is
-needed later, Windows Task Scheduler is the preferred approach.
+## Requirements
 
 Required for normal live capture:
 
-| Item | Reason |
+| Requirement | Purpose |
 | --- | --- |
 | Windows host | The product captures Windows PC state. |
-| Python 3.11+ | Runs the CLI. |
-| PowerShell | Runs the local Windows collection script. |
-| CIM / WMI | Reads OS, CPU, RAM, BIOS, GPU, disk, audio, and system details. |
-| Writable output root | Stores run folders and `export/YYYYMMDDHHMM.md`. |
+| PowerShell | Runs the local collector script. |
+| Python 3.11+ | Runs the capture pipeline behind the local API. |
 
 Optional:
 
-| Item | Reason if available |
+| Requirement | Purpose |
 | --- | --- |
-| `cmd.exe` | Helps run Windows command-line tools from the collector. |
-| `nvidia-smi` | Adds NVIDIA runtime details such as VRAM, temperature, power, VBIOS, and PCIe link. |
-| `wsl.exe` | Adds WSL distribution, Linux release, and WSL kernel details. WSL is also a non-primary backdoor entry point. |
-| `settings.json` | Stores local defaults for output root, redaction profile, and mock profile. |
-| `pytest` | Runs the development test suite. Not needed for normal capture. |
+| NVIDIA utilities | Adds NVIDIA runtime details when available. |
+| WSL | Adds WSL details when available. |
+| `pytest` | Runs the development test suite. |
 
-Not required:
+## API Usage
 
-| Item | Reason |
-| --- | --- |
-| Docker Desktop | Docker would see a container, not the full Windows host. |
-| npm / Node.js | The product has no JavaScript runtime dependency. |
-| Web UI / browser | The product is CLI-only. |
-| External API keys | The product does not call cloud APIs. |
-| Network access | Capture uses local machine information. |
+Run commands from `C:\apps\TimelineForPC`.
 
-## Usage
-
-Windows PowerShell is the front door. Run commands from `C:\apps\TimelineForPC`.
-
-Check this PC before capture:
+Check local prerequisites:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\timeline-for-pc.ps1 doctor
+Invoke-RestMethod -Method Post -Uri http://localhost:19600/doctor -Body '{}' -ContentType 'application/json'
 ```
 
-Create one live Windows snapshot:
+Run a live capture:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\timeline-for-pc.ps1 capture
+Invoke-RestMethod -Method Post -Uri http://localhost:19600/capture -Body '{}' -ContentType 'application/json'
 ```
 
-Use the Timeline-compatible command name for the same operation:
+Run a deterministic mock capture:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\timeline-for-pc.ps1 items refresh
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\timeline-for-pc.ps1 items refresh --json
+Invoke-RestMethod -Method Post -Uri http://localhost:19600/capture -Body '{"mock":true,"mockProfile":"baseline","redactionProfile":"llm_safe"}' -ContentType 'application/json'
 ```
 
-List captured PC timeline items:
+List Timeline items:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\timeline-for-pc.ps1 items list --json
+Invoke-RestMethod -Method Post -Uri http://localhost:19600/items/list -Body '{}' -ContentType 'application/json'
 ```
 
-Create a Timeline-compatible ZIP from captured PC timeline items:
+Create a Timeline-compatible ZIP:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\timeline-for-pc.ps1 items download --output C:\TimelineData\pc\TimelineForPC-items.zip --overwrite --json
+Invoke-RestMethod -Method Post -Uri http://localhost:19600/items/download -Body '{"to":"C:\\apps\\Timeline\\data\\to_text\\pc\\downloads","overwrite":true}' -ContentType 'application/json'
 ```
-
-Write to a custom output root:
-
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\timeline-for-pc.ps1 capture --output-root C:\TimelineData\pc-test
-```
-
-Choose a redaction profile for handoff-facing artifacts:
-
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\timeline-for-pc.ps1 capture --redaction-profile llm_safe
-```
-
-Run deterministic mock captures:
-
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\timeline-for-pc.ps1 capture --mock --mock-profile baseline
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\timeline-for-pc.ps1 capture --mock --mock-profile upgraded
-```
-
-Run a quick output-contract check:
-
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\timeline-for-pc.ps1 smoke-test
-```
-
-Run the same check with live Windows collection:
-
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\timeline-for-pc.ps1 smoke-test --live
-```
-
-Check whether this PC has the required and optional local tools for live collection:
-
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\timeline-for-pc.ps1 doctor
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\timeline-for-pc.ps1 doctor --json
-```
-
-Create local persistent settings:
-
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\timeline-for-pc.ps1 settings init
-```
-
-Show resolved local settings:
-
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\timeline-for-pc.ps1 settings status --json
-```
-
-Save local persistent settings:
-
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\timeline-for-pc.ps1 settings save --output-root C:\TimelineData\pc --redaction-profile llm_safe --mock-profile baseline --json
-```
-
-If the Python package is already installed, the console command still works:
-
-```powershell
-timeline-for-pc doctor
-```
-
-`cli.ps1` is kept as a thin compatibility wrapper for Timeline-style callers:
-
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\cli.ps1 items refresh
-```
-
-WSL backdoor usage:
-
-```bash
-cd /mnt/c/apps/TimelineForPC
-PYTHONPATH=src python -m timeline_for_pc doctor
-```
-
-## Output Shape
-
-`report.md` is the main human-readable record inside the run directory.
-
-- a compact main-info summary
-- OS / BIOS / CPU / memory / GPU / display / storage / network / WSL / audio / virtualization / installed apps sections
-- current machine state only
-
-`export/YYYYMMDDHHMM.md` is the final deliverable for sharing or handing to an LLM.
-
-It keeps the report as one markdown file instead of splitting it into timeline / handoff / ZIP artifacts.
-The product responsibility is limited to exporting the current machine state.
-
-The timeline files are internal product indexes. They make repeated captures
-usable by a parent Timeline product without changing the final markdown export:
-
-- `timeline.json` is the event history for this PC item.
-- `convert_info.json` stores the latest capture status and fingerprint metadata.
-- `events.jsonl` appends one event per capture, including `unchanged` captures.
-- `items.jsonl` points to the latest known PC item.
-
-The change check uses a material configuration fingerprint. Runtime-only values
-such as capture time, free disk space, GPU temperature, used VRAM, and currently
-running WSL distributions are ignored so normal daily activity does not create
-false configuration changes.
-
-`items download` creates a ZIP that uses the same item artifact layout expected
-by Timeline-style product downloads:
-
-- `items/<pc-id>/timeline.json`
-- `items/<pc-id>/convert_info.json`
-- `items.jsonl`
-- `events.jsonl`
-- `manifest.json`
-
-The parent Timeline still needs a `pc` product registration and PC-specific
-normalization before this ZIP can appear in the combined Timeline store.
-
-`snapshot_redacted.json` and `export/YYYYMMDDHHMM.md` use the selected redaction profile.
-
-Current profiles:
-
-- `llm_safe`
-  - redacts the host name
-  - removes app publishers from the redacted snapshot
-- `none`
-  - keeps the structured redacted snapshot unmodified
 
 ## Settings
 
 Persistent local settings live at the product root:
 
-- `settings.example.json` is tracked by Git.
+- `settings.example.json` is tracked.
 - `settings.json` is local-only and ignored by Git.
 
-Initialize local settings:
+Current supported shape:
 
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\timeline-for-pc.ps1 settings init
+```json
+{
+  "schemaVersion": 1,
+  "runtime": {
+    "instanceName": "7d3f91ab4e",
+    "apiPort": 19600
+  },
+  "outputRoot": "C:/apps/Timeline/data/to_text/pc"
+}
 ```
-
-`settings init` creates `settings.json` only when it does not already exist. It
-does not overwrite local settings.
 
 Supported settings:
 
-- `output_root`: default run output directory when `--output-root` is omitted
-- `redaction_profile`: default redaction profile when `--redaction-profile` is omitted
-- `mock_profile`: default mock profile when `--mock-profile` is omitted
+- `runtime.instanceName`: local product instance name
+- `outputRoot`: default output directory for captures and Timeline artifacts
+- `runtime.apiPort`: port used by the local API
 
-CLI arguments still take priority over `settings.json`.
+`mock_profile` and `redaction_profile` are command options, not persistent
+settings.
 
-`settings save` updates only the local `settings.json`. It does not modify
-`settings.example.json`.
+Settings API calls:
+
+```powershell
+Invoke-RestMethod -Method Post -Uri http://localhost:19600/settings/init -Body '{}' -ContentType 'application/json'
+Invoke-RestMethod -Method Post -Uri http://localhost:19600/settings/status -Body '{}' -ContentType 'application/json'
+Invoke-RestMethod -Method Post -Uri http://localhost:19600/settings/save -Body '{"outputRoot":"C:\\apps\\Timeline\\data\\to_text\\pc","instanceName":"7d3f91ab4e","apiPort":19600}' -ContentType 'application/json'
+```
+
+When settings are saved, unknown existing keys are preserved. This is important
+for product-specific secrets or tokens in sibling products. TimelineForPC does
+not require a Hugging Face token.
+
+## Local API
+
+TimelineForPC provides a small local API for Timeline integration.
+
+```text
+GET http://localhost:{runtime.apiPort}/health
+```
+
+The response body is a JSON boolean:
+
+```json
+true
+```
+
+Timeline-compatible API actions are also available:
+
+```text
+POST http://localhost:{runtime.apiPort}/capture
+POST http://localhost:{runtime.apiPort}/doctor
+POST http://localhost:{runtime.apiPort}/smoke-test
+POST http://localhost:{runtime.apiPort}/settings/init
+POST http://localhost:{runtime.apiPort}/settings/status
+POST http://localhost:{runtime.apiPort}/settings/save
+POST http://localhost:{runtime.apiPort}/items/list
+POST http://localhost:{runtime.apiPort}/items/refresh
+POST http://localhost:{runtime.apiPort}/items/download
+```
+
+`/capture` accepts optional capture settings using JSON field names such as
+`outputRoot`, `mock`, `mockProfile`, and `redactionProfile`.
+
+`/doctor` accepts `outputRoot`.
+
+`/smoke-test` accepts `outputRoot`, `live`, and `redactionProfile`.
+
+`/settings/save` accepts `outputRoot`, `instanceName`, and `apiPort`.
+
+`/items/list` accepts `outputRoot`, `page`, and `pageSize`.
+
+`/items/refresh` accepts the same optional capture settings using JSON field
+names such as `outputRoot`, `mock`, `mockProfile`, and `redactionProfile`.
+
+`/items/download` accepts `outputRoot`, `to` or `outputPath`, `overwrite`,
+and `itemIds`.
+Responses preserve the existing JSON payload shape so Timeline can use HTTP
+calls without changing the data contract. The local API calls the Python capture
+functions in-process; live Windows collection still uses the PowerShell
+collector script as the OS data source.
+
+Start or stop the local API process:
+
+```powershell
+.\start.ps1
+.\stop.ps1
+```
+
+`start.ps1` uses `settings.json` by default. For local smoke checks, a temporary
+port can be supplied:
+
+```powershell
+.\start.ps1 -Port 19601
+```
+
+## Always-On Mode
+
+To keep the local API available after Windows logon, install the current-user
+autostart entry:
+
+```powershell
+.\install-autostart.ps1
+```
+
+The installer first tries to register a current-user Scheduled Task. If the
+current environment refuses Scheduled Task registration, it falls back to a
+current-user Startup launcher that runs `watchdog.ps1`.
+
+The always-on check calls `start.ps1` at logon and then repeats the same
+idempotent start check every 5 minutes. If TimelineForPC is already running,
+`start.ps1` exits without starting a second process.
+
+Remove the autostart entry:
+
+```powershell
+.\uninstall-autostart.ps1
+```
+
+Remove the task and stop the running local API:
+
+```powershell
+.\uninstall-autostart.ps1 -Stop
+```
 
 ## Development
 
-Full test execution requires `pytest`. The project declares it in the optional
-`test` extra:
+Run tests:
 
-```bash
-python -m pip install -e ".[test]"
-```
-
-Then run tests:
-
-```bash
+```powershell
 python -m pytest
 ```
 
-Some local operator environments may not have `pip` or `pytest` installed. In
-that case, use the deterministic mock capture and bytecode compilation as
-alternate checks until the test dependency is available:
+Check Python syntax:
 
-```bash
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src python -m timeline_for_pc capture --mock --mock-profile baseline --output-root /tmp/timeline-for-pc-smoke
-PYTHONPYCACHEPREFIX=/tmp/timeline-for-pc-pycache python -m compileall -q src tests
+```powershell
+python -m compileall -q src tests
 ```
-
-Mock mode is the test baseline and should stay stable.
-
-## Smoke Test
-
-`smoke-test` is the user-facing health check for this CLI. It runs one capture,
-checks that the expected files exist, verifies that exactly one
-`export/YYYYMMDDHHMM.md` file was created, and confirms that the markdown report
-uses the current English output shape without diff artifacts.
-
-The first line is the machine-readable result:
-
-- `OK` means the output contract is valid.
-- `NG` means the command found one or more output problems.
-
-By default, `smoke-test` uses deterministic mock data so it is safe and stable.
-Use `--live` when you want to verify the real Windows collection path.
-
-## Doctor
-
-`doctor` is the preflight check for live collection. It does not collect or
-export PC information. It only checks whether the local command-line tools and
-output directory needed by `capture` are available.
-
-The first line is the machine-readable result:
-
-- `OK` means required checks passed.
-- `NG` means at least one required check failed.
-
-Each detail line includes `[required]` or `[optional]`. Optional checks such as
-`nvidia-smi` and `wsl.exe` may show `WARN`. A warning means that the main report
-can still be created, but that optional detail will be skipped.
-
-`doctor --json` also returns a `runtime` object. TimelineForPC reports
-`kind: "windows_host"` and `state: "recordable"` when required checks pass,
-because this product runs directly on the Windows host and does not have a
-Docker running/stopped state.

@@ -5,20 +5,38 @@
   "productKind": "device-pc",
   "description": "Captures current Windows PC state into markdown reports and timeline items.",
   "commands": {
-    "cli": {
+    "start": {
       "type": "powershell",
-      "path": "cli.ps1"
+      "path": "start.ps1"
     },
-    "primary": {
+    "stop": {
       "type": "powershell",
-      "path": "timeline-for-pc.ps1"
+      "path": "stop.ps1"
+    },
+    "installAutostart": {
+      "type": "powershell",
+      "path": "install-autostart.ps1"
+    },
+    "uninstallAutostart": {
+      "type": "powershell",
+      "path": "uninstall-autostart.ps1"
     }
+  },
+  "api": {
+    "enabled": true,
+    "connectionMode": "api",
+    "healthPath": "/health",
+    "defaultHost": "localhost",
+    "defaultPort": 19600,
+    "defaultBaseUrl": "http://localhost:19600"
   },
   "settings": {
     "file": "settings.json",
     "exampleFile": "settings.example.json",
     "supportsBasicDefaults": true,
-    "supportsProductOverrides": true
+    "supportsProductOverrides": true,
+    "supportsRuntimeApi": true,
+    "supportsInstanceName": true
   },
   "capabilities": {
     "fileList": false,
@@ -48,6 +66,18 @@
   },
   "runtime": {
     "usesDocker": false,
-    "dockerManagedByTimeline": false
+    "dockerManagedByTimeline": false,
+    "hostApi": true,
+    "healthApi": true,
+    "hostOnlyResponsibilities": [
+      "windowsSystemInventory",
+      "currentUserAutostart",
+      "hostApiLifecycle"
+    ],
+    "dockerOffloadCandidates": [
+      "snapshotNormalization",
+      "reportRendering",
+      "timelineArtifactPackaging"
+    ]
   }
 }

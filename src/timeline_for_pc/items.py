@@ -47,6 +47,7 @@ def download_items(
     output_path: Path | None,
     to_dir: Path | None,
     overwrite: bool,
+    item_ids: list[str] | None = None,
 ) -> DownloadResult:
     archive_path = _resolve_archive_path(
         output_root=output_root,
@@ -60,7 +61,7 @@ def download_items(
     if archive_path.exists():
         archive_path.unlink()
 
-    item_dirs = _item_dirs(output_root)
+    item_dirs = _selected_item_dirs(output_root=output_root, item_ids=item_ids)
     event_count = 0
     for item_dir in item_dirs:
         timeline = _read_optional_json_object(item_dir / "timeline.json")
@@ -94,7 +95,7 @@ def download_items(
             "README.md",
             "\n".join(
                 [
-                    "# TimelineForPC Items Download",
+                    "# TimelineForPC Download Archive",
                     "",
                     "This ZIP contains TimelineForPC item artifacts for Timeline ingestion.",
                     "",
@@ -185,6 +186,24 @@ def _item_dirs(output_root: Path) -> list[Path]:
     )
 
 
+def _selected_item_dirs(*, output_root: Path, item_ids: list[str] | None) -> list[Path]:
+    item_dirs = _item_dirs(output_root)
+    if not item_ids:
+        return item_dirs
+
+    requested = []
+    for item_id in item_ids:
+        if not _safe_id(item_id):
+            raise ValueError(f"Unsafe item id: {item_id}")
+        requested.append(item_id)
+
+    by_id = {path.name: path for path in item_dirs}
+    missing = [item_id for item_id in requested if item_id not in by_id]
+    if missing:
+        raise FileNotFoundError(f"Item was not found: {', '.join(missing)}")
+    return [by_id[item_id] for item_id in requested]
+
+
 def _resolve_archive_path(*, output_root: Path, output_path: Path | None, to_dir: Path | None) -> Path:
     if output_path is not None:
         return output_path
@@ -207,6 +226,10 @@ def _text(value: Any) -> str:
     if value is None:
         return ""
     return str(value)
+
+
+def _safe_id(value: str) -> bool:
+    return bool(value) and "/" not in value and "\\" not in value and value not in {".", ".."}
 
 
 def _utc_now() -> str:

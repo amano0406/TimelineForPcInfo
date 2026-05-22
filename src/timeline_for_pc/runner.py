@@ -136,9 +136,9 @@ def run_capture(
 
 def default_output_root() -> Path:
     if os.name == "nt":
-        return Path("C:/TimelineData/pc")
+        return Path("C:/apps/Timeline/data/to_text/pc")
     if Path("/mnt/c").exists():
-        return Path("/mnt/c/TimelineData/pc")
+        return Path("/mnt/c/apps/Timeline/data/to_text/pc")
 
     candidates = (
         Path.home() / "Codex" / "workspaces" / "TimelineForPC",
