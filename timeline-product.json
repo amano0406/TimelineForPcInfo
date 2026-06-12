@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "productId": "pc",
-  "displayName": "TimelineForPC",
+  "displayName": "TimelineForPcInfo",
   "productKind": "device-pc",
-  "description": "Captures current Windows PC state into markdown reports and timeline items.",
+  "description": "Captures current Windows PC information into markdown reports and timeline items.",
   "commands": {
     "start": {
       "type": "powershell",

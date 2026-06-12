@@ -7,8 +7,8 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from timeline_for_pc.mock_data import get_mock_snapshot
-from timeline_for_pc.models import Snapshot
+from timeline_for_pc_info.mock_data import get_mock_snapshot
+from timeline_for_pc_info.models import Snapshot
 
 
 class CollectorError(RuntimeError):

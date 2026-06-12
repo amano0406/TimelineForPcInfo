@@ -10,11 +10,11 @@ $ProductRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RuntimeDir = Join-Path $ProductRoot ".runtime"
 $PidFile = Join-Path $RuntimeDir "health.pid"
 $SourceRoot = Join-Path $ProductRoot "src"
-$ApiModulePath = Join-Path $SourceRoot "timeline_for_pc\api_server.py"
+$ApiModulePath = Join-Path $SourceRoot "timeline_for_pc_info\api_server.py"
 
 New-Item -ItemType Directory -Force -Path $RuntimeDir | Out-Null
 
-function Test-TimelineForPcApiCommandLine {
+function Test-TimelineForPcInfoApiCommandLine {
     param([string]$CommandLine)
 
     if (-not $CommandLine) {
@@ -23,12 +23,12 @@ function Test-TimelineForPcApiCommandLine {
 
     $escapedProductRoot = [regex]::Escape($ProductRoot)
     return (
-        ($CommandLine -match "timeline_for_pc\.api_server") -and
+        ($CommandLine -match "timeline_for_pc_info\.api_server") -and
         ($CommandLine -match $escapedProductRoot)
     )
 }
 
-function Test-TimelineForPcApiModuleCommandLine {
+function Test-TimelineForPcInfoApiModuleCommandLine {
     param([string]$CommandLine)
 
     if (-not $CommandLine) {
@@ -36,12 +36,12 @@ function Test-TimelineForPcApiModuleCommandLine {
     }
 
     return (
-        ($CommandLine -match "timeline_for_pc\.api_server") -or
-        (($CommandLine -match "TimelineForPC\.Api\.exe") -and ($CommandLine -match [regex]::Escape($ProductRoot)))
+        ($CommandLine -match "timeline_for_pc_info\.api_server") -or
+        (($CommandLine -match "TimelineForPcInfo\.Api\.exe") -and ($CommandLine -match [regex]::Escape($ProductRoot)))
     )
 }
 
-function Stop-TimelineForPcProcessTree {
+function Stop-TimelineForPcInfoProcessTree {
     param([int]$RootProcessId)
 
     if ($RootProcessId -le 0) {
@@ -86,11 +86,11 @@ function Stop-TimelineForPcProcessTree {
     }
 }
 
-function Get-TimelineForPcApiProcess {
+function Get-TimelineForPcInfoApiProcess {
     try {
         $matches = @(
             Get-CimInstance Win32_Process -ErrorAction Stop |
-                Where-Object { Test-TimelineForPcApiCommandLine -CommandLine ([string]$_.CommandLine) }
+                Where-Object { Test-TimelineForPcInfoApiCommandLine -CommandLine ([string]$_.CommandLine) }
         )
     }
     catch {
@@ -104,11 +104,11 @@ function Get-TimelineForPcApiProcess {
     return ($matches | Select-Object -First 1)
 }
 
-function Get-TimelineForPcApiModuleProcesses {
+function Get-TimelineForPcInfoApiModuleProcesses {
     try {
         return @(
             Get-CimInstance Win32_Process -ErrorAction Stop |
-                Where-Object { Test-TimelineForPcApiModuleCommandLine -CommandLine ([string]$_.CommandLine) }
+                Where-Object { Test-TimelineForPcInfoApiModuleCommandLine -CommandLine ([string]$_.CommandLine) }
         )
     }
     catch {
@@ -116,7 +116,7 @@ function Get-TimelineForPcApiModuleProcesses {
     }
 }
 
-function Test-TimelineForPcApiHealth {
+function Test-TimelineForPcInfoApiHealth {
     param([int]$ApiPort)
 
     try {
@@ -133,7 +133,7 @@ function Test-TimelineForPcApiHealth {
     return $false
 }
 
-function Get-TimelineForPcPythonCommand {
+function Get-TimelineForPcInfoPythonCommand {
     $venvPython = Join-Path $ProductRoot ".venv\Scripts\python.exe"
     if (Test-Path -LiteralPath $venvPython -PathType Leaf) {
         return [pscustomobject]@{ FilePath = $venvPython; PrefixArguments = @() }
@@ -162,11 +162,11 @@ function Get-TimelineForPcPythonCommand {
     throw "Python 3.11 or newer was not found."
 }
 
-function Get-TimelineForPcConfiguredPort {
+function Get-TimelineForPcInfoConfiguredPort {
     param([int]$OverridePort)
 
     if (($OverridePort -lt 0) -or ($OverridePort -gt 65535)) {
-        throw "TimelineForPC health API port must be between 1 and 65535."
+        throw "TimelineForPcInfo health API port must be between 1 and 65535."
     }
     if ($OverridePort -gt 0) {
         return $OverridePort
@@ -201,7 +201,7 @@ function Get-TimelineForPcConfiguredPort {
     return 19600
 }
 
-function Set-TimelineForPcApiEnvironment {
+function Set-TimelineForPcInfoApiEnvironment {
     param([int]$ApiPort)
 
     $currentPythonPath = [Environment]::GetEnvironmentVariable("PYTHONPATH", "Process")
@@ -211,21 +211,21 @@ function Set-TimelineForPcApiEnvironment {
     elseif ($currentPythonPath.Split([System.IO.Path]::PathSeparator) -notcontains $SourceRoot) {
         Set-Item -Path "Env:PYTHONPATH" -Value ($SourceRoot + [System.IO.Path]::PathSeparator + $currentPythonPath)
     }
-    Set-Item -Path "Env:TIMELINE_FOR_PC_ROOT" -Value $ProductRoot
-    Set-Item -Path "Env:TIMELINE_FOR_PC_API_PORT" -Value ([string]$ApiPort)
+    Set-Item -Path "Env:TIMELINE_FOR_PC_INFO_ROOT" -Value $ProductRoot
+    Set-Item -Path "Env:TIMELINE_FOR_PC_INFO_API_PORT" -Value ([string]$ApiPort)
 }
 
 if (-not (Test-Path -LiteralPath $ApiModulePath -PathType Leaf)) {
-    throw "TimelineForPC API module was not found: $ApiModulePath"
+    throw "TimelineForPcInfo API module was not found: $ApiModulePath"
 }
 
-$ApiPort = Get-TimelineForPcConfiguredPort -OverridePort $Port
-$Python = Get-TimelineForPcPythonCommand
-Set-TimelineForPcApiEnvironment -ApiPort $ApiPort
+$ApiPort = Get-TimelineForPcInfoConfiguredPort -OverridePort $Port
+$Python = Get-TimelineForPcInfoPythonCommand
+Set-TimelineForPcInfoApiEnvironment -ApiPort $ApiPort
 
-if (-not (Test-TimelineForPcApiHealth -ApiPort $ApiPort)) {
-    foreach ($stale in @(Get-TimelineForPcApiModuleProcesses)) {
-        Stop-TimelineForPcProcessTree -RootProcessId ([int]$stale.ProcessId)
+if (-not (Test-TimelineForPcInfoApiHealth -ApiPort $ApiPort)) {
+    foreach ($stale in @(Get-TimelineForPcInfoApiModuleProcesses)) {
+        Stop-TimelineForPcInfoProcessTree -RootProcessId ([int]$stale.ProcessId)
     }
     if (Test-Path -LiteralPath $PidFile) {
         Remove-Item -LiteralPath $PidFile -Force
@@ -248,8 +248,8 @@ if (Test-Path -LiteralPath $PidFile) {
             catch {
                 $commandLine = ""
             }
-            if (Test-TimelineForPcApiCommandLine -CommandLine $commandLine) {
-                Write-Host "TimelineForPC local API is already running. pid=$existingPid"
+            if (Test-TimelineForPcInfoApiCommandLine -CommandLine $commandLine) {
+                Write-Host "TimelineForPcInfo local API is already running. pid=$existingPid"
                 exit 0
             }
         }
@@ -257,26 +257,26 @@ if (Test-Path -LiteralPath $PidFile) {
     Remove-Item -LiteralPath $PidFile -Force
 }
 
-$running = Get-TimelineForPcApiProcess
+$running = Get-TimelineForPcInfoApiProcess
 if ($null -ne $running) {
     Set-Content -LiteralPath $PidFile -Value ([string]$running.ProcessId) -Encoding ASCII
-    Write-Host "TimelineForPC local API is already running. pid=$($running.ProcessId)"
+    Write-Host "TimelineForPcInfo local API is already running. pid=$($running.ProcessId)"
     exit 0
 }
 
 $healthArgs = @($Python.PrefixArguments) + @(
     "-m",
-    "timeline_for_pc.api_server",
+    "timeline_for_pc_info.api_server",
     "--product-root",
     $ProductRoot,
     "--port",
     [string]$ApiPort
 )
 
-$previousProductRoot = $env:TIMELINE_FOR_PC_ROOT
-$previousApiPort = $env:TIMELINE_FOR_PC_API_PORT
-$env:TIMELINE_FOR_PC_ROOT = $ProductRoot
-$env:TIMELINE_FOR_PC_API_PORT = [string]$ApiPort
+$previousProductRoot = $env:TIMELINE_FOR_PC_INFO_ROOT
+$previousApiPort = $env:TIMELINE_FOR_PC_INFO_API_PORT
+$env:TIMELINE_FOR_PC_INFO_ROOT = $ProductRoot
+$env:TIMELINE_FOR_PC_INFO_API_PORT = [string]$ApiPort
 
 if ($Foreground) {
     try {
@@ -285,32 +285,32 @@ if ($Foreground) {
     }
     finally {
         if ($null -eq $previousProductRoot) {
-            Remove-Item Env:TIMELINE_FOR_PC_ROOT -ErrorAction SilentlyContinue
+            Remove-Item Env:TIMELINE_FOR_PC_INFO_ROOT -ErrorAction SilentlyContinue
         }
         else {
-            $env:TIMELINE_FOR_PC_ROOT = $previousProductRoot
+            $env:TIMELINE_FOR_PC_INFO_ROOT = $previousProductRoot
         }
         if ($null -eq $previousApiPort) {
-            Remove-Item Env:TIMELINE_FOR_PC_API_PORT -ErrorAction SilentlyContinue
+            Remove-Item Env:TIMELINE_FOR_PC_INFO_API_PORT -ErrorAction SilentlyContinue
         }
         else {
-            $env:TIMELINE_FOR_PC_API_PORT = $previousApiPort
+            $env:TIMELINE_FOR_PC_INFO_API_PORT = $previousApiPort
         }
     }
 }
 
 $process = Start-Process -FilePath $Python.FilePath -ArgumentList $healthArgs -WorkingDirectory $ProductRoot -WindowStyle Hidden -PassThru
 if ($null -eq $previousProductRoot) {
-    Remove-Item Env:TIMELINE_FOR_PC_ROOT -ErrorAction SilentlyContinue
+    Remove-Item Env:TIMELINE_FOR_PC_INFO_ROOT -ErrorAction SilentlyContinue
 }
 else {
-    $env:TIMELINE_FOR_PC_ROOT = $previousProductRoot
+    $env:TIMELINE_FOR_PC_INFO_ROOT = $previousProductRoot
 }
 if ($null -eq $previousApiPort) {
-    Remove-Item Env:TIMELINE_FOR_PC_API_PORT -ErrorAction SilentlyContinue
+    Remove-Item Env:TIMELINE_FOR_PC_INFO_API_PORT -ErrorAction SilentlyContinue
 }
 else {
-    $env:TIMELINE_FOR_PC_API_PORT = $previousApiPort
+    $env:TIMELINE_FOR_PC_INFO_API_PORT = $previousApiPort
 }
 Set-Content -LiteralPath $PidFile -Value ([string]$process.Id) -Encoding ASCII
-Write-Host "TimelineForPC local API started. pid=$($process.Id)"
+Write-Host "TimelineForPcInfo local API started. pid=$($process.Id)"

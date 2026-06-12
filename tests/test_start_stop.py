@@ -135,7 +135,7 @@ def _wait_for_health(base_url: str) -> bool:
         except OSError:
             pass
         time.sleep(0.5)
-    raise TimeoutError("TimelineForPC health API did not answer /health in time.")
+    raise TimeoutError("TimelineForPcInfo health API did not answer /health in time.")
 
 
 def _request_text(base_url: str, method: str, path: str) -> tuple[int, str]:

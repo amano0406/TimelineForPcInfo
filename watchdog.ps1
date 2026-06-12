@@ -15,14 +15,14 @@ $StartScript = Join-Path $ProductRoot "start.ps1"
 New-Item -ItemType Directory -Force -Path $RuntimeDir | Out-Null
 
 if (-not (Test-Path -LiteralPath $StartScript -PathType Leaf)) {
-    throw "TimelineForPC start script was not found: $StartScript"
+    throw "TimelineForPcInfo start script was not found: $StartScript"
 }
 
 if ($IntervalSeconds -lt 10 -or $IntervalSeconds -gt 86400) {
     throw "IntervalSeconds must be between 10 and 86400."
 }
 
-function Test-TimelineForPcWatchdogCommandLine {
+function Test-TimelineForPcInfoWatchdogCommandLine {
     param([string]$CommandLine)
 
     if (-not $CommandLine) {
@@ -33,13 +33,13 @@ function Test-TimelineForPcWatchdogCommandLine {
     return (($CommandLine -match "watchdog\.ps1") -and ($CommandLine -match $escapedProductRoot))
 }
 
-function Get-TimelineForPcWatchdogProcess {
+function Get-TimelineForPcInfoWatchdogProcess {
     try {
         return @(
             Get-CimInstance Win32_Process -ErrorAction Stop |
                 Where-Object {
                     ([int]$_.ProcessId -ne [int]$PID) -and
-                    (Test-TimelineForPcWatchdogCommandLine -CommandLine ([string]$_.CommandLine))
+                    (Test-TimelineForPcInfoWatchdogCommandLine -CommandLine ([string]$_.CommandLine))
                 } |
                 Select-Object -First 1
         )
@@ -66,8 +66,8 @@ if (-not $Foreground) {
                 catch {
                     $commandLine = ""
                 }
-                if (Test-TimelineForPcWatchdogCommandLine -CommandLine $commandLine) {
-                    Write-Host "TimelineForPC watchdog is already running. pid=$existingPid"
+                if (Test-TimelineForPcInfoWatchdogCommandLine -CommandLine $commandLine) {
+                    Write-Host "TimelineForPcInfo watchdog is already running. pid=$existingPid"
                     exit 0
                 }
             }
@@ -75,10 +75,10 @@ if (-not $Foreground) {
         Remove-Item -LiteralPath $PidFile -Force
     }
 
-    $running = Get-TimelineForPcWatchdogProcess
+    $running = Get-TimelineForPcInfoWatchdogProcess
     if ($running.Count -gt 0) {
         Set-Content -LiteralPath $PidFile -Value ([string]$running[0].ProcessId) -Encoding ASCII
-        Write-Host "TimelineForPC watchdog is already running. pid=$($running[0].ProcessId)"
+        Write-Host "TimelineForPcInfo watchdog is already running. pid=$($running[0].ProcessId)"
         exit 0
     }
 
@@ -94,7 +94,7 @@ if (-not $Foreground) {
     )
     $process = Start-Process -FilePath "powershell.exe" -ArgumentList $watchdogArgs -WorkingDirectory $ProductRoot -WindowStyle Hidden -PassThru
     Set-Content -LiteralPath $PidFile -Value ([string]$process.Id) -Encoding ASCII
-    Write-Host "TimelineForPC watchdog started. pid=$($process.Id) intervalSeconds=$IntervalSeconds"
+    Write-Host "TimelineForPcInfo watchdog started. pid=$($process.Id) intervalSeconds=$IntervalSeconds"
     exit 0
 }
 

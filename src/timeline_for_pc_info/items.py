@@ -76,8 +76,8 @@ def download_items(
             json.dumps(
                 {
                     "schema_version": 1,
-                    "artifact_type": "timeline_for_pc_items_download",
-                    "product": "TimelineForPC",
+                    "artifact_type": "timeline_for_pc_info_items_download",
+                    "product": "TimelineForPcInfo",
                     "created_at_utc": created_at,
                     "item_count": len(item_dirs),
                     "event_count": event_count,
@@ -95,9 +95,9 @@ def download_items(
             "README.md",
             "\n".join(
                 [
-                    "# TimelineForPC Download Archive",
+                    "# TimelineForPcInfo Download Archive",
                     "",
-                    "This ZIP contains TimelineForPC item artifacts for Timeline ingestion.",
+                    "This ZIP contains TimelineForPcInfo item artifacts for Timeline ingestion.",
                     "",
                     "- items/<pc-id>/timeline.json: PC timeline events.",
                     "- items/<pc-id>/convert_info.json: latest conversion and fingerprint metadata.",
@@ -209,7 +209,7 @@ def _resolve_archive_path(*, output_root: Path, output_path: Path | None, to_dir
         return output_path
     stamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
     directory = to_dir if to_dir is not None else output_root / "downloads"
-    return directory / f"TimelineForPC-items-{stamp}.zip"
+    return directory / f"TimelineForPcInfo-items-{stamp}.zip"
 
 
 def _read_optional_json_object(path: Path) -> dict[str, Any]:

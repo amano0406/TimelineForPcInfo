@@ -1,4 +1,4 @@
-"""TimelineForPC package."""
+"""TimelineForPcInfo package."""
 
 __all__ = ["__version__"]
 

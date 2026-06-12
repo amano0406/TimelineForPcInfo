@@ -1,11 +1,17 @@
-# TimelineForPC Output Contract
+# TimelineForPcInfo Output Contract
 
-This document describes the files and JSON payloads written by TimelineForPC.
+This document describes the files and JSON payloads written by TimelineForPcInfo.
 Examples use the default Windows output root:
 
 ```text
 C:\apps\Timeline\data\to_text\pc
 ```
+
+Stage 1 of the rename changes the user-facing product name only. Compatibility
+fields and paths such as `product: "TimelineForPcInfo"`,
+`artifact_type: "timeline_for_pc_info_items_download"`, the
+`TimelineForPcInfo-items-*.zip` prefix, and `C:\apps\TimelineForPcInfo` remain unchanged
+until the contract migration stage.
 
 ## Conventions
 
@@ -40,7 +46,7 @@ outputRoot/
   events.jsonl
   manifest.json
   downloads/
-    TimelineForPC-items-20260514-051200.zip
+    TimelineForPcInfo-items-20260514-051200.zip
 ```
 
 ## Run Directory Files
@@ -302,7 +308,7 @@ Root manifest for Timeline-compatible item artifacts.
 ```json
 {
   "schema_version": 1,
-  "product": "TimelineForPC",
+  "product": "TimelineForPcInfo",
   "updated_at_utc": "2026-05-13T20:11:40Z",
   "item_count": 1,
   "event_count": 3,
@@ -363,7 +369,7 @@ Latest conversion and fingerprint metadata for the PC item.
 ```json
 {
   "schema_version": 1,
-  "product": "TimelineForPC",
+  "product": "TimelineForPcInfo",
   "item_id": "pc-0123456789abcdef",
   "item_type": "windows_pc",
   "source_type": "local_windows_host",
@@ -480,8 +486,8 @@ The response includes `result.json` plus API-level fields:
 {
   "schema_version": 1,
   "ok": true,
-  "archive_path": "C:\\apps\\Timeline\\data\\to_text\\pc\\downloads\\TimelineForPC-items-20260514-052100.zip",
-  "archivePath": "C:\\apps\\Timeline\\data\\to_text\\pc\\downloads\\TimelineForPC-items-20260514-052100.zip",
+  "archive_path": "C:\\apps\\Timeline\\data\\to_text\\pc\\downloads\\TimelineForPcInfo-items-20260514-052100.zip",
+  "archivePath": "C:\\apps\\Timeline\\data\\to_text\\pc\\downloads\\TimelineForPcInfo-items-20260514-052100.zip",
   "item_count": 1,
   "event_count": 3
 }
@@ -493,7 +499,7 @@ The response includes `result.json` plus API-level fields:
 {
   "schemaVersion": 1,
   "ok": true,
-  "settings_path": "C:\\apps\\TimelineForPC\\settings.json",
+  "settings_path": "C:\\apps\\TimelineForPcInfo\\settings.json",
   "outputRoot": "C:\\apps\\Timeline\\data\\to_text\\pc",
   "runtime": {
     "instanceName": "7d3f91ab4e",
@@ -534,7 +540,7 @@ API actions return this shape for handled errors:
   "schema_version": 1,
   "ok": false,
   "error": {
-    "message": "Archive already exists: C:\\apps\\Timeline\\data\\to_text\\pc\\downloads\\TimelineForPC-items-20260514-052100.zip"
+    "message": "Archive already exists: C:\\apps\\Timeline\\data\\to_text\\pc\\downloads\\TimelineForPcInfo-items-20260514-052100.zip"
   }
 }
 ```
@@ -557,8 +563,8 @@ ZIP `manifest.json`:
 ```json
 {
   "schema_version": 1,
-  "artifact_type": "timeline_for_pc_items_download",
-  "product": "TimelineForPC",
+  "artifact_type": "timeline_for_pc_info_items_download",
+  "product": "TimelineForPcInfo",
   "created_at_utc": "2026-05-13T20:21:00Z",
   "item_count": 1,
   "event_count": 3,

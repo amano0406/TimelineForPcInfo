@@ -5,20 +5,20 @@ import zipfile
 from pathlib import Path
 from typing import Any
 
-from timeline_for_pc import api_server
-from timeline_for_pc.api_server import handle_request
-from timeline_for_pc.doctor import DoctorCheck
-from timeline_for_pc.doctor import DoctorResult
-from timeline_for_pc.doctor import format_doctor_result
-from timeline_for_pc.doctor import run_doctor
-from timeline_for_pc.runner import run_capture
-from timeline_for_pc.settings import AppSettings
-from timeline_for_pc.settings import SettingsInitResult
-from timeline_for_pc.settings import SettingsSaveResult
-from timeline_for_pc.settings import init_settings
-from timeline_for_pc.settings import load_settings
-from timeline_for_pc.settings import save_settings
-from timeline_for_pc.smoke import run_smoke_test
+from timeline_for_pc_info import api_server
+from timeline_for_pc_info.api_server import handle_request
+from timeline_for_pc_info.doctor import DoctorCheck
+from timeline_for_pc_info.doctor import DoctorResult
+from timeline_for_pc_info.doctor import format_doctor_result
+from timeline_for_pc_info.doctor import run_doctor
+from timeline_for_pc_info.runner import run_capture
+from timeline_for_pc_info.settings import AppSettings
+from timeline_for_pc_info.settings import SettingsInitResult
+from timeline_for_pc_info.settings import SettingsSaveResult
+from timeline_for_pc_info.settings import init_settings
+from timeline_for_pc_info.settings import load_settings
+from timeline_for_pc_info.settings import save_settings
+from timeline_for_pc_info.smoke import run_smoke_test
 
 
 def test_mock_capture_creates_expected_files(tmp_path: Path) -> None:
@@ -243,7 +243,7 @@ def test_doctor_reports_ok_when_required_tools_exist(tmp_path: Path) -> None:
         return args[-1] == "nvidia-smi"
 
     result = run_doctor(
-        output_root=tmp_path / "TimelineForPC",
+        output_root=tmp_path / "TimelineForPcInfo",
         tool_resolver=resolve_tool,
         command_checker=command_succeeds,
         python_version=(3, 11, 9),
@@ -271,7 +271,7 @@ def test_doctor_accepts_output_root_that_capture_can_create(tmp_path: Path) -> N
 
 def test_doctor_reports_ng_when_required_tools_are_missing(tmp_path: Path) -> None:
     result = run_doctor(
-        output_root=tmp_path / "TimelineForPC",
+        output_root=tmp_path / "TimelineForPcInfo",
         tool_resolver=lambda _name: None,
         command_checker=lambda _args: False,
         python_version=(3, 10, 0),
@@ -484,7 +484,7 @@ def test_save_settings_preserves_unknown_product_specific_values(tmp_path: Path)
 
 def test_api_server_handles_settings_capture_list_and_download(tmp_path: Path, monkeypatch: Any) -> None:
     product_root = tmp_path / "product"
-    source_dir = product_root / "src" / "timeline_for_pc"
+    source_dir = product_root / "src" / "timeline_for_pc_info"
     source_dir.mkdir(parents=True)
     output_root = tmp_path / "runs"
     settings_path = product_root / "settings.json"
@@ -503,7 +503,7 @@ def test_api_server_handles_settings_capture_list_and_download(tmp_path: Path, m
         + "\n",
         encoding="utf-8",
     )
-    monkeypatch.setenv("TIMELINE_FOR_PC_ROOT", str(product_root))
+    monkeypatch.setenv("TIMELINE_FOR_PC_INFO_ROOT", str(product_root))
 
     health_status, health_payload = handle_request("GET", "/health", None)
     assert health_status == 200

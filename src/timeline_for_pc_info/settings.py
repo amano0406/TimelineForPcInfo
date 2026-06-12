@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from timeline_for_pc.runner import default_output_root
+from timeline_for_pc_info.runner import default_output_root
 
 
 SETTINGS_EXAMPLE_FILENAME = "settings.example.json"
@@ -44,7 +44,7 @@ class SettingsSaveResult:
 
 
 def product_root() -> Path:
-    configured = os.environ.get("TIMELINE_FOR_PC_ROOT")
+    configured = os.environ.get("TIMELINE_FOR_PC_INFO_ROOT")
     if configured:
         return Path(configured)
     return Path(__file__).resolve().parents[2]

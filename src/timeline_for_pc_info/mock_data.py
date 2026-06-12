@@ -1,15 +1,15 @@
 from __future__ import annotations
 
-from timeline_for_pc.models import ApplicationInfo
-from timeline_for_pc.models import GpuInfo
-from timeline_for_pc.models import HostInfo
-from timeline_for_pc.models import MotherboardInfo
-from timeline_for_pc.models import OsInfo
-from timeline_for_pc.models import PhysicalDiskInfo
-from timeline_for_pc.models import ProcessorInfo
-from timeline_for_pc.models import SCHEMA_VERSION
-from timeline_for_pc.models import Snapshot
-from timeline_for_pc.models import VolumeInfo
+from timeline_for_pc_info.models import ApplicationInfo
+from timeline_for_pc_info.models import GpuInfo
+from timeline_for_pc_info.models import HostInfo
+from timeline_for_pc_info.models import MotherboardInfo
+from timeline_for_pc_info.models import OsInfo
+from timeline_for_pc_info.models import PhysicalDiskInfo
+from timeline_for_pc_info.models import ProcessorInfo
+from timeline_for_pc_info.models import SCHEMA_VERSION
+from timeline_for_pc_info.models import Snapshot
+from timeline_for_pc_info.models import VolumeInfo
 
 
 def get_mock_snapshot(profile: str) -> Snapshot:

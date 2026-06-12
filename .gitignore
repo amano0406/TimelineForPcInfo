@@ -17,7 +17,7 @@ settings.json
 .runtime/
 
 # Local smoke-test and run outputs.
-TimelineForPC-runs/
+TimelineForPcInfo-runs/
 data/input/
 data/output/
 data/state/

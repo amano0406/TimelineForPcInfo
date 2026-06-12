@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from timeline_for_pc.runner import run_capture
+from timeline_for_pc_info.runner import run_capture
 
 
 EXPECTED_RUN_FILES = {

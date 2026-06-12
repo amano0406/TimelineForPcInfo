@@ -4,9 +4,9 @@ from dataclasses import replace
 from copy import deepcopy
 from typing import Any
 
-from timeline_for_pc.models import ApplicationInfo
-from timeline_for_pc.models import HostInfo
-from timeline_for_pc.models import Snapshot
+from timeline_for_pc_info.models import ApplicationInfo
+from timeline_for_pc_info.models import HostInfo
+from timeline_for_pc_info.models import Snapshot
 
 
 REDACTION_PROFILES = ("none", "llm_safe")

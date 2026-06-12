@@ -21,7 +21,7 @@ def test_product_manifest_uses_api_runtime_launchers() -> None:
     assert commands["installAutostart"]["path"] == "install-autostart.ps1"
     assert commands["uninstallAutostart"]["path"] == "uninstall-autostart.ps1"
     assert all(command["path"] != removed_script_name for command in commands.values())
-    assert all(command["path"] != "timeline-for-pc.ps1" for command in commands.values())
+    assert all(command["path"] != "timeline-for-pc-info.ps1" for command in commands.values())
 
     for command in commands.values():
         assert (REPO_ROOT / command["path"]).exists()
@@ -60,7 +60,7 @@ def test_product_manifest_declares_api_mode_with_health_probe() -> None:
 
 
 def test_python_api_server_exposes_timeline_routes_without_legacy_pc_prefix() -> None:
-    program = (REPO_ROOT / "src" / "timeline_for_pc" / "api_server.py").read_text(encoding="utf-8")
+    program = (REPO_ROOT / "src" / "timeline_for_pc_info" / "api_server.py").read_text(encoding="utf-8")
 
     assert 'route == "/health"' in program
     assert '"/pc/' not in program
@@ -84,7 +84,7 @@ def test_readme_documents_local_api() -> None:
     assert "Allowed host-only work: Windows system inventory" in readme
     assert "Do not add product" in readme
     assert "The product integration surface is the Python local API" in readme
-    assert "TimelineForPC provides a small local API for Timeline integration." in readme
+    assert "TimelineForPcInfo provides a small local API for Timeline integration." in readme
     assert "GET http://localhost:{runtime.apiPort}/health" in readme
     assert "POST http://localhost:{runtime.apiPort}/items/download" in readme
     assert "## Always-On Mode" in readme
@@ -105,7 +105,7 @@ def test_runtime_entrypoints_do_not_reference_legacy_cli_shim() -> None:
         REPO_ROOT / "uninstall-autostart.ps1",
         REPO_ROOT / "settings.example.json",
     ]
-    runtime_paths.extend((REPO_ROOT / "src" / "timeline_for_pc").glob("*.py"))
+    runtime_paths.extend((REPO_ROOT / "src" / "timeline_for_pc_info").glob("*.py"))
 
     for path in runtime_paths:
         assert removed_script_name not in path.read_text(encoding="utf-8")
@@ -114,7 +114,7 @@ def test_runtime_entrypoints_do_not_reference_legacy_cli_shim() -> None:
 def test_start_script_uses_python_api_server_instead_of_dotnet_runner() -> None:
     start_script = (REPO_ROOT / "start.ps1").read_text(encoding="utf-8")
 
-    assert "timeline_for_pc.api_server" in start_script
+    assert "timeline_for_pc_info.api_server" in start_script
     assert "dotnet" not in start_script
 
 

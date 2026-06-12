@@ -3,7 +3,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "timeline-for-pc"
+name = "timeline-for-pc-info"
 version = "0.2.0"
 description = "Local-first Windows host tool that captures the current state of a Windows PC into a readable markdown report."
 readme = "README.md"

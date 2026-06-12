@@ -4,7 +4,7 @@ from datetime import UTC
 from datetime import datetime
 from pathlib import Path
 
-from timeline_for_pc.models import Snapshot
+from timeline_for_pc_info.models import Snapshot
 
 
 def write_export_report(

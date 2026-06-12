@@ -8,11 +8,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from timeline_for_pc.bundle import write_export_report
-from timeline_for_pc.collector import collect_snapshot
-from timeline_for_pc.redaction import redact_snapshot
-from timeline_for_pc.render import render_report
-from timeline_for_pc.timeline_store import write_timeline_artifacts
+from timeline_for_pc_info.bundle import write_export_report
+from timeline_for_pc_info.collector import collect_snapshot
+from timeline_for_pc_info.redaction import redact_snapshot
+from timeline_for_pc_info.render import render_report
+from timeline_for_pc_info.timeline_store import write_timeline_artifacts
 
 
 def run_capture(
@@ -141,8 +141,8 @@ def default_output_root() -> Path:
         return Path("/mnt/c/apps/Timeline/data/to_text/pc")
 
     candidates = (
-        Path.home() / "Codex" / "workspaces" / "TimelineForPC",
-        Path.cwd() / "TimelineForPC-runs",
+        Path.home() / "Codex" / "workspaces" / "TimelineForPcInfo",
+        Path.cwd() / "TimelineForPcInfo-runs",
     )
     for candidate in candidates:
         if candidate.parent.exists():

@@ -7,19 +7,19 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
-from timeline_for_pc.doctor import doctor_result_payload
-from timeline_for_pc.doctor import run_doctor
-from timeline_for_pc.items import download_items
-from timeline_for_pc.items import download_result_payload
-from timeline_for_pc.items import list_items
-from timeline_for_pc.redaction import REDACTION_PROFILES
-from timeline_for_pc.runner import run_capture
-from timeline_for_pc.settings import SettingsError
-from timeline_for_pc.settings import init_settings
-from timeline_for_pc.settings import load_settings
-from timeline_for_pc.settings import save_settings
-from timeline_for_pc.settings import settings_path
-from timeline_for_pc.smoke import run_smoke_test
+from timeline_for_pc_info.doctor import doctor_result_payload
+from timeline_for_pc_info.doctor import run_doctor
+from timeline_for_pc_info.items import download_items
+from timeline_for_pc_info.items import download_result_payload
+from timeline_for_pc_info.items import list_items
+from timeline_for_pc_info.redaction import REDACTION_PROFILES
+from timeline_for_pc_info.runner import run_capture
+from timeline_for_pc_info.settings import SettingsError
+from timeline_for_pc_info.settings import init_settings
+from timeline_for_pc_info.settings import load_settings
+from timeline_for_pc_info.settings import save_settings
+from timeline_for_pc_info.settings import settings_path
+from timeline_for_pc_info.smoke import run_smoke_test
 
 
 MOCK_PROFILES = ("baseline", "upgraded")
@@ -29,11 +29,22 @@ def handle_request(method: str, path: str, request: dict[str, Any] | None) -> tu
     route = path.rstrip("/") or "/"
     if method == "GET" and route == "/health":
         return HTTPStatus.OK, health_payload()
+    if method == "GET" and route == "/jobs":
+        return HTTPStatus.OK, jobs_list_payload()
+    if method == "GET" and route == "/jobs/active":
+        return HTTPStatus.OK, jobs_active_payload()
+    if method == "GET" and route.startswith("/jobs/"):
+        return HTTPStatus.OK, jobs_status_payload(route.removeprefix("/jobs/"))
     if method != "POST":
         return HTTPStatus.NOT_FOUND, error_payload(f"Endpoint not found: {method} {path}")
 
     try:
         payload = request or {}
+        if route == "/jobs":
+            return HTTPStatus.OK, jobs_start_payload(payload)
+        if route.startswith("/jobs/") and route.endswith("/cancel"):
+            job_id = route[len("/jobs/") : -len("/cancel")].strip()
+            return HTTPStatus.OK, jobs_cancel_payload(job_id)
         if route == "/capture":
             return HTTPStatus.OK, capture_payload(payload)
         if route == "/doctor":
@@ -65,7 +76,7 @@ def handle_request(method: str, path: str, request: dict[str, Any] | None) -> tu
 def health_payload() -> bool:
     try:
         _ = load_settings()
-        return (Path(product_root()) / "src" / "timeline_for_pc").is_dir()
+        return (Path(product_root()) / "src" / "timeline_for_pc_info").is_dir()
     except Exception:
         return False
 
@@ -173,8 +184,67 @@ def items_download_payload(request: dict[str, Any]) -> dict[str, Any]:
     return download_result_payload(result)
 
 
+def jobs_list_payload() -> dict[str, Any]:
+    return {
+        "schemaVersion": "timeline.product_jobs.v1",
+        "productId": "pc",
+        "productName": "TimelineForPcInfo",
+        "activeJobId": "",
+        "count": 0,
+        "jobs": [],
+    }
+
+
+def jobs_active_payload() -> dict[str, Any]:
+    return jobs_status_payload("")
+
+
+def jobs_status_payload(job_id: str) -> dict[str, Any]:
+    return {
+        "schemaVersion": "timeline.product_job.v1",
+        "productId": "pc",
+        "productName": "TimelineForPcInfo",
+        "type": "refresh",
+        "jobId": job_id,
+        "state": "none",
+        "phase": "idle",
+        "stage": "idle",
+        "message": "No active PC capture job exists.",
+        "progress": {"percent": 0, "current": 0, "total": 0, "unit": "captures", "currentItem": ""},
+        "startedAt": "",
+        "updatedAt": "",
+        "completedAt": "",
+        "error": "",
+        "warnings": [],
+        "result": {},
+    }
+
+
+def jobs_cancel_payload(job_id: str) -> dict[str, Any]:
+    payload = jobs_status_payload(job_id)
+    payload["state"] = "canceled"
+    payload["phase"] = "refresh"
+    payload["stage"] = "canceled"
+    payload["message"] = "No active PC capture job exists; nothing was canceled."
+    return payload
+
+
+def jobs_start_payload(request: dict[str, Any]) -> dict[str, Any]:
+    result = capture_payload(request)
+    return {
+        **jobs_status_payload(str(result.get("run_id") or result.get("runDir") or "")),
+        "state": "completed",
+        "phase": "refresh",
+        "stage": "completed",
+        "message": "PC capture completed.",
+        "progress": {"percent": 100, "current": 1, "total": 1, "unit": "captures", "currentItem": ""},
+        "completedAt": "",
+        "result": result,
+    }
+
+
 def product_root() -> Path:
-    configured = os.environ.get("TIMELINE_FOR_PC_ROOT")
+    configured = os.environ.get("TIMELINE_FOR_PC_INFO_ROOT")
     if configured:
         return Path(configured)
     return Path(__file__).resolve().parents[2]
@@ -316,8 +386,8 @@ def error_payload(message: str, error_type: str = "Error") -> dict[str, Any]:
     }
 
 
-class TimelineForPcApiHandler(BaseHTTPRequestHandler):
-    server_version = "TimelineForPcApi/1.0"
+class TimelineForPcInfoApiHandler(BaseHTTPRequestHandler):
+    server_version = "TimelineForPcInfoApi/1.0"
 
     def do_GET(self) -> None:
         self._handle()
@@ -358,13 +428,13 @@ class TimelineForPcApiHandler(BaseHTTPRequestHandler):
 
 
 def main() -> int:
-    host = os.environ.get("TIMELINE_FOR_PC_API_BIND_HOST", "127.0.0.1")
-    port = int(os.environ.get("TIMELINE_FOR_PC_API_PORT", "19600"))
-    product_root_value = os.environ.get("TIMELINE_FOR_PC_ROOT", "")
+    host = os.environ.get("TIMELINE_FOR_PC_INFO_API_BIND_HOST", "127.0.0.1")
+    port = int(os.environ.get("TIMELINE_FOR_PC_INFO_API_PORT", "19600"))
+    product_root_value = os.environ.get("TIMELINE_FOR_PC_INFO_ROOT", "")
     if product_root_value:
-        os.environ["TIMELINE_FOR_PC_ROOT"] = str(Path(product_root_value).resolve())
-    server = ThreadingHTTPServer((host, port), TimelineForPcApiHandler)
-    print(f"TimelineForPC API listening on http://{host}:{port}", flush=True)
+        os.environ["TIMELINE_FOR_PC_INFO_ROOT"] = str(Path(product_root_value).resolve())
+    server = ThreadingHTTPServer((host, port), TimelineForPcInfoApiHandler)
+    print(f"TimelineForPcInfo API listening on http://{host}:{port}", flush=True)
     server.serve_forever()
     return 0
 

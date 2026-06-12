@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$TaskName = "TimelineForPC Local API",
+    [string]$TaskName = "TimelineForPcInfo Local API",
     [switch]$Stop
 )
 
@@ -10,9 +10,9 @@ $ProductRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $StopScript = Join-Path $ProductRoot "stop.ps1"
 $WatchdogPidFile = Join-Path $ProductRoot ".runtime\watchdog.pid"
 $StartupDir = [Environment]::GetFolderPath("Startup")
-$StartupLauncher = if ($StartupDir) { Join-Path $StartupDir "TimelineForPC Local API.cmd" } else { $null }
+$StartupLauncher = if ($StartupDir) { Join-Path $StartupDir "TimelineForPcInfo Local API.cmd" } else { $null }
 
-function Stop-TimelineForPcProcessTree {
+function Stop-TimelineForPcInfoProcessTree {
     param([int]$RootProcessId)
 
     if ($RootProcessId -le 0) {
@@ -57,7 +57,7 @@ function Stop-TimelineForPcProcessTree {
     }
 }
 
-function Test-TimelineForPcWatchdogCommandLine {
+function Test-TimelineForPcInfoWatchdogCommandLine {
     param([string]$CommandLine)
 
     if (-not $CommandLine) {
@@ -68,7 +68,7 @@ function Test-TimelineForPcWatchdogCommandLine {
     return (($CommandLine -match "watchdog\.ps1") -and ($CommandLine -match $escapedProductRoot))
 }
 
-function Stop-TimelineForPcWatchdog {
+function Stop-TimelineForPcInfoWatchdog {
     if (-not (Test-Path -LiteralPath $WatchdogPidFile)) {
         return
     }
@@ -97,34 +97,34 @@ function Stop-TimelineForPcWatchdog {
         $commandLine = ""
     }
 
-    if ($commandLine -and (-not (Test-TimelineForPcWatchdogCommandLine -CommandLine $commandLine))) {
-        throw "Refusing to stop process $processId because it does not look like TimelineForPC watchdog."
+    if ($commandLine -and (-not (Test-TimelineForPcInfoWatchdogCommandLine -CommandLine $commandLine))) {
+        throw "Refusing to stop process $processId because it does not look like TimelineForPcInfo watchdog."
     }
 
-    Stop-TimelineForPcProcessTree -RootProcessId $processId
+    Stop-TimelineForPcInfoProcessTree -RootProcessId $processId
     Remove-Item -LiteralPath $WatchdogPidFile -Force
-    Write-Host "TimelineForPC watchdog stopped. pid=$processId"
+    Write-Host "TimelineForPcInfo watchdog stopped. pid=$processId"
 }
 
 $Task = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
 if ($null -eq $Task) {
-    Write-Host "TimelineForPC autostart task is not installed. task=$TaskName"
+    Write-Host "TimelineForPcInfo autostart task is not installed. task=$TaskName"
 }
 else {
     Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
-    Write-Host "TimelineForPC autostart task removed. task=$TaskName"
+    Write-Host "TimelineForPcInfo autostart task removed. task=$TaskName"
 }
 
 if ($StartupLauncher -and (Test-Path -LiteralPath $StartupLauncher)) {
     Remove-Item -LiteralPath $StartupLauncher -Force
-    Write-Host "TimelineForPC Startup launcher removed. path=$StartupLauncher"
+    Write-Host "TimelineForPcInfo Startup launcher removed. path=$StartupLauncher"
 }
 
-Stop-TimelineForPcWatchdog
+Stop-TimelineForPcInfoWatchdog
 
 if ($Stop) {
     if (-not (Test-Path -LiteralPath $StopScript -PathType Leaf)) {
-        throw "TimelineForPC stop script was not found: $StopScript"
+        throw "TimelineForPcInfo stop script was not found: $StopScript"
     }
 
     & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $StopScript

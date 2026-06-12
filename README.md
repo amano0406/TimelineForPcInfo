@@ -1,14 +1,20 @@
-# TimelineForPC
+# TimelineForPcInfo
 
-`TimelineForPC` is a local-first Windows host tool for capturing the current
-state of a Windows PC, writing a readable markdown report, and appending
+`TimelineForPcInfo` is a local-first Windows host tool for capturing the current
+state and hardware/software information of a Windows PC, writing a readable markdown report, and appending
 Timeline-compatible item artifacts.
 
 The product integration surface is the Python local API started by `start.ps1`.
+The canonical product name is `TimelineForPcInfo`. Runtime integration uses
+`productId: "pc"`, the Python package `timeline_for_pc_info`, environment
+variables prefixed with `TIMELINE_FOR_PC_INFO_`, the
+`TimelineForPcInfo-items-*.zip` archive prefix, the
+`C:\apps\TimelineForPcInfo` directory, port `19600`, and the `to_text\pc`
+output path.
 
 ## Host-Only Boundary
 
-TimelineForPC is intentionally host-only because the source data is the current
+TimelineForPcInfo is intentionally host-only because the source data is the current
 Windows machine state. Keep that host-side surface narrow:
 
 - Allowed host-only work: Windows system inventory, current-user autostart, and
@@ -68,7 +74,7 @@ Optional:
 
 ## API Usage
 
-Run commands from `C:\apps\TimelineForPC`.
+Run commands from `C:\apps\TimelineForPcInfo`.
 
 Check local prerequisites:
 
@@ -138,12 +144,12 @@ Invoke-RestMethod -Method Post -Uri http://localhost:19600/settings/save -Body '
 ```
 
 When settings are saved, unknown existing keys are preserved. This is important
-for product-specific secrets or tokens in sibling products. TimelineForPC does
+for product-specific secrets or tokens in sibling products. TimelineForPcInfo does
 not require a Hugging Face token.
 
 ## Local API
 
-TimelineForPC provides a small local API for Timeline integration.
+TimelineForPcInfo provides a small local API for Timeline integration.
 
 ```text
 GET http://localhost:{runtime.apiPort}/health
@@ -218,7 +224,7 @@ current environment refuses Scheduled Task registration, it falls back to a
 current-user Startup launcher that runs `watchdog.ps1`.
 
 The always-on check calls `start.ps1` at logon and then repeats the same
-idempotent start check every 5 minutes. If TimelineForPC is already running,
+idempotent start check every 5 minutes. If TimelineForPcInfo is already running,
 `start.ps1` exits without starting a second process.
 
 Remove the autostart entry:

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from timeline_for_pc.models import Snapshot
+from timeline_for_pc_info.models import Snapshot
 
 
 CHASSIS_LABELS = {
@@ -32,7 +32,7 @@ def render_report(snapshot: Snapshot) -> str:
     gpu_runtime = _list(details, "gpu_runtime")
 
     lines = [
-        "# TimelineForPC",
+        "# TimelineForPcInfo",
         "",
         f"Captured at: {snapshot.captured_at_utc}",
         "",

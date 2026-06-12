@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$TaskName = "TimelineForPC Local API",
+    [string]$TaskName = "TimelineForPcInfo Local API",
     [int]$KeepAliveMinutes = 5,
     [switch]$NoStart
 )
@@ -12,11 +12,11 @@ $StartScript = Join-Path $ProductRoot "start.ps1"
 $WatchdogScript = Join-Path $ProductRoot "watchdog.ps1"
 
 if (-not (Test-Path -LiteralPath $StartScript -PathType Leaf)) {
-    throw "TimelineForPC start script was not found: $StartScript"
+    throw "TimelineForPcInfo start script was not found: $StartScript"
 }
 
 if (-not (Test-Path -LiteralPath $WatchdogScript -PathType Leaf)) {
-    throw "TimelineForPC watchdog script was not found: $WatchdogScript"
+    throw "TimelineForPcInfo watchdog script was not found: $WatchdogScript"
 }
 
 if ($KeepAliveMinutes -lt 1 -or $KeepAliveMinutes -gt 1440) {
@@ -43,7 +43,7 @@ $Settings = New-ScheduledTaskSettingsSet `
     -AllowStartIfOnBatteries `
     -DontStopIfGoingOnBatteries
 
-$Description = "Keeps the TimelineForPC local API running for the current Windows user."
+$Description = "Keeps the TimelineForPcInfo local API running for the current Windows user."
 
 try {
     Register-ScheduledTask `
@@ -53,7 +53,7 @@ try {
         -Settings $Settings `
         -Description $Description `
         -Force | Out-Null
-    Write-Host "TimelineForPC autostart installed. mode=scheduled_task task=$TaskName keepAliveMinutes=$KeepAliveMinutes"
+    Write-Host "TimelineForPcInfo autostart installed. mode=scheduled_task task=$TaskName keepAliveMinutes=$KeepAliveMinutes"
 
     if (-not $NoStart) {
         & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $StartScript
@@ -72,13 +72,13 @@ if (-not $StartupDir) {
 }
 
 New-Item -ItemType Directory -Force -Path $StartupDir | Out-Null
-$StartupLauncher = Join-Path $StartupDir "TimelineForPC Local API.cmd"
+$StartupLauncher = Join-Path $StartupDir "TimelineForPcInfo Local API.cmd"
 $LauncherContent = @(
     "@echo off",
     "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$WatchdogScript`" -IntervalSeconds $WatchdogIntervalSeconds"
 )
 Set-Content -LiteralPath $StartupLauncher -Value $LauncherContent -Encoding ASCII
-Write-Host "TimelineForPC autostart installed. mode=startup_watchdog launcher=$StartupLauncher keepAliveMinutes=$KeepAliveMinutes"
+Write-Host "TimelineForPcInfo autostart installed. mode=startup_watchdog launcher=$StartupLauncher keepAliveMinutes=$KeepAliveMinutes"
 
 if (-not $NoStart) {
     & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $WatchdogScript -IntervalSeconds $WatchdogIntervalSeconds

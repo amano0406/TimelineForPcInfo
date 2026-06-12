@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from timeline_for_pc.models import Snapshot
+from timeline_for_pc_info.models import Snapshot
 
 
 FINGERPRINT_IGNORED_FIELDS = (
@@ -114,7 +114,7 @@ def write_timeline_artifacts(
 
     convert_info = {
         "schema_version": 1,
-        "product": "TimelineForPC",
+        "product": "TimelineForPcInfo",
         "item_id": item_id,
         "item_type": "windows_pc",
         "source_type": "local_windows_host",
@@ -151,7 +151,7 @@ def write_timeline_artifacts(
 
     root_manifest = {
         "schema_version": 1,
-        "product": "TimelineForPC",
+        "product": "TimelineForPcInfo",
         "updated_at_utc": completed_at_utc,
         "item_count": 1,
         "event_count": len(timeline["events"]),

@@ -6,7 +6,7 @@ $ErrorActionPreference = "Stop"
 $ProductRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $PidFile = Join-Path $ProductRoot ".runtime\health.pid"
 
-function Stop-TimelineForPcProcessTree {
+function Stop-TimelineForPcInfoProcessTree {
     param([int]$RootProcessId)
 
     if ($RootProcessId -le 0) {
@@ -51,7 +51,7 @@ function Stop-TimelineForPcProcessTree {
     }
 }
 
-function Test-TimelineForPcApiCommandLine {
+function Test-TimelineForPcInfoApiCommandLine {
     param([string]$CommandLine)
 
     if (-not $CommandLine) {
@@ -59,10 +59,10 @@ function Test-TimelineForPcApiCommandLine {
     }
 
     $escapedProductRoot = [regex]::Escape($ProductRoot)
-    return ($CommandLine -match "timeline_for_pc\.api_server" -and $CommandLine -match $escapedProductRoot)
+    return ($CommandLine -match "timeline_for_pc_info\.api_server" -and $CommandLine -match $escapedProductRoot)
 }
 
-function Test-TimelineForPcApiModuleCommandLine {
+function Test-TimelineForPcInfoApiModuleCommandLine {
     param([string]$CommandLine)
 
     if (-not $CommandLine) {
@@ -70,16 +70,16 @@ function Test-TimelineForPcApiModuleCommandLine {
     }
 
     return (
-        ($CommandLine -match "timeline_for_pc\.api_server") -or
-        (($CommandLine -match "TimelineForPC\.Api\.exe") -and ($CommandLine -match [regex]::Escape($ProductRoot)))
+        ($CommandLine -match "timeline_for_pc_info\.api_server") -or
+        (($CommandLine -match "TimelineForPcInfo\.Api\.exe") -and ($CommandLine -match [regex]::Escape($ProductRoot)))
     )
 }
 
-function Stop-TimelineForPcApiModuleProcesses {
+function Stop-TimelineForPcInfoApiModuleProcesses {
     try {
         $matches = @(
             Get-CimInstance Win32_Process -ErrorAction Stop |
-                Where-Object { Test-TimelineForPcApiModuleCommandLine -CommandLine ([string]$_.CommandLine) }
+                Where-Object { Test-TimelineForPcInfoApiModuleCommandLine -CommandLine ([string]$_.CommandLine) }
         )
     }
     catch {
@@ -87,13 +87,13 @@ function Stop-TimelineForPcApiModuleProcesses {
     }
 
     foreach ($match in $matches) {
-        Stop-TimelineForPcProcessTree -RootProcessId ([int]$match.ProcessId)
+        Stop-TimelineForPcInfoProcessTree -RootProcessId ([int]$match.ProcessId)
     }
 }
 
 if (-not (Test-Path -LiteralPath $PidFile)) {
-    Stop-TimelineForPcApiModuleProcesses
-    Write-Host "TimelineForPC health API is not running."
+    Stop-TimelineForPcInfoApiModuleProcesses
+    Write-Host "TimelineForPcInfo health API is not running."
     exit 0
 }
 
@@ -101,16 +101,16 @@ $pidText = (Get-Content -LiteralPath $PidFile -Raw).Trim()
 $processId = 0
 if (-not [int]::TryParse($pidText, [ref]$processId)) {
     Remove-Item -LiteralPath $PidFile -Force
-    Stop-TimelineForPcApiModuleProcesses
-    Write-Host "TimelineForPC health API pid file was invalid and has been removed."
+    Stop-TimelineForPcInfoApiModuleProcesses
+    Write-Host "TimelineForPcInfo health API pid file was invalid and has been removed."
     exit 0
 }
 
 $process = Get-Process -Id $processId -ErrorAction SilentlyContinue
 if ($null -eq $process) {
     Remove-Item -LiteralPath $PidFile -Force
-    Stop-TimelineForPcApiModuleProcesses
-    Write-Host "TimelineForPC health API was not running."
+    Stop-TimelineForPcInfoApiModuleProcesses
+    Write-Host "TimelineForPcInfo health API was not running."
     exit 0
 }
 
@@ -125,10 +125,10 @@ catch {
     $commandLine = ""
 }
 
-if ($commandLine -and (-not (Test-TimelineForPcApiCommandLine -CommandLine $commandLine)) -and (-not (Test-TimelineForPcApiModuleCommandLine -CommandLine $commandLine))) {
-    throw "Refusing to stop process $processId because it does not look like TimelineForPC local API."
+if ($commandLine -and (-not (Test-TimelineForPcInfoApiCommandLine -CommandLine $commandLine)) -and (-not (Test-TimelineForPcInfoApiModuleCommandLine -CommandLine $commandLine))) {
+    throw "Refusing to stop process $processId because it does not look like TimelineForPcInfo local API."
 }
 
-Stop-TimelineForPcProcessTree -RootProcessId $processId
+Stop-TimelineForPcInfoProcessTree -RootProcessId $processId
 Remove-Item -LiteralPath $PidFile -Force
-Write-Host "TimelineForPC local API stopped. pid=$processId"
+Write-Host "TimelineForPcInfo local API stopped. pid=$processId"
